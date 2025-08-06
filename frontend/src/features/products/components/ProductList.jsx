@@ -48,6 +48,9 @@ import {
 import { fetchBrandsAsync, selectBrands } from '../../brands/BrandSlice';
 import { fetchCategoriesAsync, selectCategories } from '../../categories/CategoriesSlice';
 import { ProductCard } from './ProductCard';
+import { createWishlistItemAsync, deleteWishlistItemByIdAsync, selectWishlistItems, selectWishlistItemAddStatus, selectWishlistItemDeleteStatus, resetWishlistItemAddStatus, resetWishlistItemDeleteStatus } from '../../wishlist/WishlistSlice';
+import { selectLoggedInUser } from '../../auth/AuthSlice';
+import { toast } from 'react-toastify';
 
 const ProductList = () => {
     const dispatch = useDispatch();
@@ -58,6 +61,10 @@ const ProductList = () => {
     const filters = useSelector(selectProductFilters);
     const brands = useSelector(selectBrands);
     const categories = useSelector(selectCategories);
+    const wishlistItems = useSelector(selectWishlistItems);
+    const loggedInUser = useSelector(selectLoggedInUser);
+    const wishlistItemAddStatus = useSelector(selectWishlistItemAddStatus);
+    const wishlistItemDeleteStatus = useSelector(selectWishlistItemDeleteStatus);
 
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [priceRange, setPriceRange] = useState([filters.minPrice || 0, filters.maxPrice || 1000]);
@@ -71,6 +78,25 @@ const ProductList = () => {
         dispatch(fetchBrandsAsync());
         dispatch(fetchCategoriesAsync());
     }, [dispatch]);
+
+    // Handle wishlist status changes
+    useEffect(() => {
+        if (wishlistItemAddStatus === 'fulfilled') {
+            dispatch(resetWishlistItemAddStatus());
+        } else if (wishlistItemAddStatus === 'rejected') {
+            toast.error('Error adding to wishlist');
+            dispatch(resetWishlistItemAddStatus());
+        }
+    }, [wishlistItemAddStatus, dispatch]);
+
+    useEffect(() => {
+        if (wishlistItemDeleteStatus === 'fulfilled') {
+            dispatch(resetWishlistItemDeleteStatus());
+        } else if (wishlistItemDeleteStatus === 'rejected') {
+            toast.error('Error removing from wishlist');
+            dispatch(resetWishlistItemDeleteStatus());
+        }
+    }, [wishlistItemDeleteStatus, dispatch]);
 
     useEffect(() => {
         const currentFilters = {
@@ -160,6 +186,29 @@ const ProductList = () => {
         dispatch(setFilters(currentFilters));
         dispatch(setPage(1));
         dispatch(fetchProductsAsync(currentFilters));
+    };
+
+    const handleAddRemoveFromWishlist = (e, productId) => {
+        e.stopPropagation();
+
+        if (!loggedInUser) {
+            toast.error('Please login to add items to wishlist');
+            return;
+        }
+
+        const isInWishlist = wishlistItems.some((item) => item.product._id === productId);
+
+        if (isInWishlist) {
+            // Remove from wishlist
+            const wishlistItem = wishlistItems.find((item) => item.product._id === productId);
+            if (wishlistItem) {
+                dispatch(deleteWishlistItemByIdAsync(wishlistItem._id));
+            }
+        } else {
+            // Add to wishlist
+            const data = { user: loggedInUser._id, product: productId };
+            dispatch(createWishlistItemAsync(data));
+        }
     };
 
     if (error) {
@@ -366,12 +415,15 @@ const ProductList = () => {
                             <Grid item xs={12} sm={6} md={4} lg={3} key={product._id}>
                                 <ProductCard
                                     id={product._id}
-                                    title={product.name}
+                                    title={product.title || product.name}
                                     price={product.price}
                                     thumbnail={product.thumbnail}
                                     brand={product.brand?.name || product.brand}
                                     stockQuantity={product.stockQuantity}
-                                    handleAddRemoveFromWishlist={() => { }}
+                                    discountPercentage={product.discountPercentage}
+                                    averageRating={product.averageRating}
+                                    reviewCount={product.reviewCount}
+                                    handleAddRemoveFromWishlist={handleAddRemoveFromWishlist}
                                     isWishlistCard={false}
                                     isAdminCard={false}
                                 />

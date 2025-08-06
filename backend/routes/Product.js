@@ -1,14 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const { create, getAll, getById, updateById, deleteById, getByCategory, getByBrand } = require('../controllers/Product');
+const {
+	create,
+	getAll,
+	getById,
+	updateById,
+	deleteById,
+	getSuggestions,
+	getRelated
+} = require('../controllers/Product');
 const { verifyToken } = require('../middleware/VerifyToken');
 const upload = require('../middleware/upload');
 
-// Public routes
+// Public routes - specific routes first
+router.get('/suggestions', getSuggestions);
+router.get('/:id/related', getRelated);
 router.get('/', getAll);
 router.get('/:id', getById);
-router.get('/category/:categoryId', getByCategory);
-router.get('/brand/:brandId', getByBrand);
 
 // Protected routes (admin only)
 router.post('/', verifyToken, upload.single('image'), create);

@@ -12,17 +12,16 @@ import { AddProductPage, AdminOrdersPage, CartPage, CheckoutPage, ForgotPassword
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import StripeProvider from './features/payment/components/StripeProvider';
-
+import ErrorBoundary from './components/ErrorBoundary';
+import ToastContainer from './components/ToastContainer';
 
 function App() {
 
   const isAuthChecked = useSelector(selectIsAuthChecked)
   const loggedInUser = useSelector(selectLoggedInUser)
 
-
   useAuthCheck();
   useFetchLoggedInUserDetails(loggedInUser);
-
 
   const routes = createBrowserRouter(
     createRoutesFromElements(
@@ -49,12 +48,12 @@ function App() {
             // user routes
             <>
               <Route path='/' element={<Protected><HomePage /></Protected>} />
-              <Route path='/cart' element={<Protected><CartPage /></Protected>} />
+              <Route path='/cart' element={<Protected requireVerification={false}><CartPage /></Protected>} />
               <Route path='/profile' element={<Protected><UserProfilePage /></Protected>} />
               <Route path='/checkout' element={<Protected><CheckoutPage /></Protected>} />
               <Route path='/order-success/:id' element={<Protected><OrderSuccessPage /></Protected>} />
               <Route path='/orders' element={<Protected><UserOrdersPage /></Protected>} />
-              <Route path='/wishlist' element={<Protected><WishlistPage /></Protected>} />
+              <Route path='/wishlist' element={<Protected requireVerification={false}><WishlistPage /></Protected>} />
             </>
           )
         }
@@ -65,11 +64,13 @@ function App() {
     )
   )
 
-
   return isAuthChecked ? (
-    <StripeProvider>
-      <RouterProvider router={routes} />
-    </StripeProvider>
+    <ErrorBoundary>
+      <StripeProvider>
+        <RouterProvider router={routes} />
+        <ToastContainer />
+      </StripeProvider>
+    </ErrorBoundary>
   ) : "";
 }
 

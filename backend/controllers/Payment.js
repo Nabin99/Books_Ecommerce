@@ -1,9 +1,21 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe only if API key is available
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_your_stripe_secret_key_here') {
+	stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+}
+
 const Order = require('../models/Order');
 
 // Create payment intent
 exports.createPaymentIntent = async (req, res) => {
 	try {
+		// Check if Stripe is configured
+		if (!stripe) {
+			return res.status(503).json({
+				message: 'Payment service is not configured. Please contact administrator.'
+			});
+		}
+
 		const { amount, orderId } = req.body;
 
 		if (!amount || amount <= 0) {
@@ -32,6 +44,13 @@ exports.createPaymentIntent = async (req, res) => {
 // Confirm payment
 exports.confirmPayment = async (req, res) => {
 	try {
+		// Check if Stripe is configured
+		if (!stripe) {
+			return res.status(503).json({
+				message: 'Payment service is not configured. Please contact administrator.'
+			});
+		}
+
 		const { paymentIntentId, orderId } = req.body;
 
 		// Retrieve payment intent from Stripe
@@ -98,41 +117,25 @@ exports.getPaymentStatus = async (req, res) => {
 // Refund payment
 exports.refundPayment = async (req, res) => {
 	try {
-		const { orderId } = req.params;
-
-		const order = await Order.findById(orderId);
-
-		if (!order) {
-			return res.status(404).json({ message: 'Order not found' });
+		// Check if Stripe is configured
+		if (!stripe) {
+			return res.status(503).json({
+				message: 'Payment service is not configured. Please contact administrator.'
+			});
 		}
 
-		if (!order.stripePaymentIntentId) {
-			return res.status(400).json({ message: 'No Stripe payment found for this order' });
-		}
+		const { paymentIntentId, amount } = req.body;
 
-		if (order.paymentStatus !== 'Completed') {
-			return res.status(400).json({ message: 'Payment not completed, cannot refund' });
-		}
-
-		// Create refund in Stripe
+		// Create refund
 		const refund = await stripe.refunds.create({
-			payment_intent: order.stripePaymentIntentId
+			payment_intent: paymentIntentId,
+			amount: amount ? Math.round(amount * 100) : undefined // Partial refund if amount specified
 		});
-
-		// Update order status
-		const updatedOrder = await Order.findByIdAndUpdate(
-			orderId,
-			{
-				paymentStatus: 'Refunded',
-				status: 'Cancelled'
-			},
-			{ new: true }
-		);
 
 		res.status(200).json({
 			message: 'Refund processed successfully',
-			refund: refund,
-			order: updatedOrder
+			refundId: refund.id,
+			status: refund.status
 		});
 	} catch (error) {
 		console.error('Refund error:', error);

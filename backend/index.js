@@ -15,6 +15,7 @@ const reviewRoutes = require("./routes/Review")
 const wishlistRoutes = require("./routes/Wishlist")
 const paymentRoutes = require("./routes/Payment")
 const dashboardRoutes = require("./routes/Dashboard")
+const couponRoutes = require("./routes/Coupon")
 const { connectToDB } = require("./database/db")
 
 
@@ -44,6 +45,7 @@ server.use("/reviews", reviewRoutes)
 server.use("/wishlist", wishlistRoutes)
 server.use("/payments", paymentRoutes)
 server.use("/dashboard", dashboardRoutes)
+server.use("/coupons", couponRoutes)
 
 
 

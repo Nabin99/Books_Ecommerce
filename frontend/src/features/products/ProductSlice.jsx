@@ -277,14 +277,14 @@ export const {
 } = productSlice.actions;
 
 // Selectors
-export const selectProducts = (state) => state.products.products;
-export const selectCurrentProduct = (state) => state.products.currentProduct;
-export const selectProductStatus = (state) => state.products.status;
-export const selectProductLoading = (state) => state.products.loading;
-export const selectProductError = (state) => state.products.error;
-export const selectProductPagination = (state) => state.products.pagination;
-export const selectProductFilters = (state) => state.products.filters;
-export const selectProductIsFilterOpen = (state) => state.products.isFilterOpen;
+export const selectProducts = (state) => state.ProductSlice.products;
+export const selectCurrentProduct = (state) => state.ProductSlice.currentProduct;
+export const selectProductStatus = (state) => state.ProductSlice.status;
+export const selectProductLoading = (state) => state.ProductSlice.loading;
+export const selectProductError = (state) => state.ProductSlice.error;
+export const selectProductPagination = (state) => state.ProductSlice.pagination;
+export const selectProductFilters = (state) => state.ProductSlice.filters;
+export const selectProductIsFilterOpen = (state) => state.ProductSlice.isFilterOpen;
 
 // Additional exports for backward compatibility
 export const selectSelectedProduct = selectCurrentProduct;
