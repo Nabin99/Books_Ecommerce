@@ -1,77 +1,110 @@
-import { axiosi } from "../../config/axios";
+import { axiosi } from '../../config/axios';
 
-export const addProduct=async(data)=>{
+// Get all products with filtering, sorting, and pagination
+export const fetchProducts = async (filters = {}) => {
     try {
-        const res=await axiosi.post('/products',data)
-        return res.data
-    } catch (error) {
-        throw error.response.data
-    }
-}
-export const fetchProducts=async(filters)=>{
+        const params = new URLSearchParams();
 
-    let queryString=''
+        // Add pagination
+        if (filters.pagination) {
+            params.append('page', filters.pagination.page);
+            params.append('limit', filters.pagination.limit);
+        }
 
-    if(filters.brand){
-        filters.brand.map((brand)=>{
-            queryString+=`brand=${brand}&`
-        })
-    }
-    if(filters.category){
-        filters.category.map((category)=>{
-            queryString+=`category=${category}&`
-        })
-    }
+        // Add sorting
+        if (filters.sort) {
+            params.append('sortBy', filters.sort.sort);
+            params.append('sortOrder', filters.sort.order);
+        }
 
-    if(filters.pagination){
-        queryString+=`page=${filters.pagination.page}&limit=${filters.pagination.limit}&`
-    }
+        // Add filters
+        if (filters.category) {
+            params.append('category', filters.category);
+        }
+        if (filters.brand) {
+            params.append('brand', filters.brand);
+        }
+        if (filters.minPrice) {
+            params.append('minPrice', filters.minPrice);
+        }
+        if (filters.maxPrice) {
+            params.append('maxPrice', filters.maxPrice);
+        }
+        if (filters.search) {
+            params.append('search', filters.search);
+        }
 
-    if(filters.sort){
-        queryString+=`sort=${filters.sort.sort}&order=${filters.sort.order}&`
+        const response = await axiosi.get(`/products?${params.toString()}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Error fetching products' };
     }
+};
 
-    if(filters.user){
-        queryString+=`user=${filters.user}&`
-    }
-    
+// Get product by ID
+export const fetchProductById = async (id) => {
     try {
-        const res=await axiosi.get(`/products?${queryString}`)
-        const totalResults=await res.headers.get("X-Total-Count")
-        return {data:res.data,totalResults:totalResults}
+        const response = await axiosi.get(`/products/${id}`);
+        return response.data;
     } catch (error) {
-        throw error.response.data
+        throw error.response?.data || { message: 'Error fetching product' };
     }
-}
-export const fetchProductById=async(id)=>{
+};
+
+// Create new product with image upload
+export const createProduct = async (productData) => {
     try {
-        const res=await axiosi.get(`/products/${id}`)
-        return res.data
+        const response = await axiosi.post('/products', productData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
     } catch (error) {
-        throw error.response.data
+        throw error.response?.data || { message: 'Error creating product' };
     }
-}
-export const updateProductById=async(update)=>{
+};
+
+// Update product with image upload
+export const updateProduct = async (id, productData) => {
     try {
-        const res=await axiosi.patch(`/products/${update._id}`,update)
-        return res.data
+        const response = await axiosi.patch(`/products/${id}`, productData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
     } catch (error) {
-        throw error.response.data
+        throw error.response?.data || { message: 'Error updating product' };
     }
-}
-export const undeleteProductById=async(id)=>{
+};
+
+// Delete product
+export const deleteProduct = async (id) => {
     try {
-        const res=await axiosi.patch(`/products/undelete/${id}`)
-        return res.data
+        const response = await axiosi.delete(`/products/${id}`);
+        return response.data;
     } catch (error) {
-        throw error.response.data
+        throw error.response?.data || { message: 'Error deleting product' };
     }
-}
-export const deleteProductById=async(id)=>{
+};
+
+// Get products by category
+export const fetchProductsByCategory = async (categoryId) => {
     try {
-        const res=await axiosi.delete(`/products/${id}`)
-        return res.data
+        const response = await axiosi.get(`/products/category/${categoryId}`);
+        return response.data;
     } catch (error) {
-        throw error.response.data
+        throw error.response?.data || { message: 'Error fetching products by category' };
     }
-}
+};
+
+// Get products by brand
+export const fetchProductsByBrand = async (brandId) => {
+    try {
+        const response = await axiosi.get(`/products/brand/${brandId}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Error fetching products by brand' };
+    }
+};

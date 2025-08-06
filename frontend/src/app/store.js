@@ -1,4 +1,4 @@
-import {configureStore} from '@reduxjs/toolkit'
+import { configureStore } from '@reduxjs/toolkit'
 import AuthSlice from '../features/auth/AuthSlice'
 import ProductSlice from '../features/products/ProductSlice'
 import UserSlice from '../features/user/UserSlice'
@@ -9,9 +9,10 @@ import AddressSlice from '../features/address/AddressSlice'
 import ReviewSlice from '../features/review/ReviewSlice'
 import OrderSlice from '../features/order/OrderSlice'
 import WishlistSlice from '../features/wishlist/WishlistSlice'
+import PaymentSlice from '../features/payment/PaymentSlice'
 
-export const store=configureStore({
-    reducer:{
+export const store = configureStore({
+    reducer: {
         AuthSlice,
         ProductSlice,
         UserSlice,
@@ -21,6 +22,7 @@ export const store=configureStore({
         AddressSlice,
         ReviewSlice,
         OrderSlice,
-        WishlistSlice
+        WishlistSlice,
+        payment: PaymentSlice
     }
 })

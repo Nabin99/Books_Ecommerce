@@ -1,148 +1,280 @@
-import React, { useEffect } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { Link, useNavigate} from 'react-router-dom'
-import { addProductAsync, resetProductAddStatus, selectProductAddStatus,updateProductByIdAsync } from '../../products/ProductSlice'
-import { Button, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { useForm } from "react-hook-form"
-import { selectBrands } from '../../brands/BrandSlice'
-import { selectCategories } from '../../categories/CategoriesSlice'
-import { toast } from 'react-toastify'
+import React, { useState, useEffect } from 'react';
+import {
+    Box,
+    Paper,
+    Typography,
+    TextField,
+    Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Stack,
+    Alert,
+    CircularProgress,
+    Card,
+    CardMedia,
+    IconButton
+} from '@mui/material';
+import { CloudUpload, Delete } from '@mui/icons-material';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { createProductAsync, selectProductStatus } from '../../products/ProductSlice';
+import { fetchBrandsAsync, selectBrands } from '../../brands/BrandSlice';
+import { fetchCategoriesAsync, selectCategories } from '../../categories/CategoriesSlice';
 
-export const AddProduct = () => {
+const AddProduct = () => {
+    const [imagePreview, setImagePreview] = useState(null);
+    const [imageFile, setImageFile] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    const {register,handleSubmit,reset,formState: { errors }} = useForm()
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const productStatus = useSelector(selectProductStatus);
+    const brands = useSelector(selectBrands);
+    const categories = useSelector(selectCategories);
 
-    const dispatch=useDispatch()
-    const brands=useSelector(selectBrands)
-    const categories=useSelector(selectCategories)
-    const productAddStatus=useSelector(selectProductAddStatus)
-    const navigate=useNavigate()
-    const theme=useTheme()
-    const is1100=useMediaQuery(theme.breakpoints.down(1100))
-    const is480=useMediaQuery(theme.breakpoints.down(480))
+    const { register, handleSubmit, formState: { errors }, reset, watch } = useForm();
 
-    useEffect(()=>{
-        if(productAddStatus==='fullfilled'){
-            reset()
-            toast.success("New product added")
-            navigate("/admin/dashboard")
+    useEffect(() => {
+        dispatch(fetchBrandsAsync());
+        dispatch(fetchCategoriesAsync());
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (productStatus === 'fulfilled') {
+            reset();
+            setImagePreview(null);
+            setImageFile(null);
+            navigate('/admin/dashboard');
+        } else if (productStatus === 'rejected') {
+            setError('Failed to create product');
         }
-        else if(productAddStatus==='rejected'){
-            toast.error("Error adding product, please try again later")
+    }, [productStatus, reset, navigate]);
+
+    const handleImageChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreview(e.target.result);
+            };
+            reader.readAsDataURL(file);
         }
-    },[productAddStatus])
+    };
 
-    useEffect(()=>{
-        return ()=>{
-            dispatch(resetProductAddStatus())
+    const handleRemoveImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+    };
+
+    const onSubmit = async (data) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const formData = new FormData();
+            formData.append('name', data.name);
+            formData.append('description', data.description);
+            formData.append('price', data.price);
+            formData.append('category', data.category);
+            formData.append('brand', data.brand);
+            formData.append('stock', data.stock);
+
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+
+            await dispatch(createProductAsync(formData)).unwrap();
+        } catch (err) {
+            setError(err.message || 'Failed to create product');
+        } finally {
+            setLoading(false);
         }
-    },[])
+    };
 
-    const handleAddProduct=(data)=>{
-        const newProduct={...data,images:[data.image0,data.image1,data.image2,data.image3]}
-        delete newProduct.image0
-        delete newProduct.image1
-        delete newProduct.image2
-        delete newProduct.image3
+    return (
+        <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+            <Paper elevation={2} sx={{ p: 4 }}>
+                <Typography variant="h4" gutterBottom>
+                    Add New Product
+                </Typography>
 
-        dispatch(addProductAsync(newProduct))
-    }
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {error}
+                    </Alert>
+                )}
 
-    
-  return (
-    <Stack p={'0 16px'} justifyContent={'center'} alignItems={'center'} flexDirection={'row'} >
-        
+                <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+                    <Stack spacing={3}>
+                        {/* Product Name */}
+                        <TextField
+                            label="Product Name"
+                            fullWidth
+                            {...register('name', {
+                                required: 'Product name is required',
+                                minLength: { value: 3, message: 'Name must be at least 3 characters' }
+                            })}
+                            error={!!errors.name}
+                            helperText={errors.name?.message}
+                        />
 
-        <Stack width={is1100?"100%":"60rem"} rowGap={4} mt={is480?4:6} mb={6} component={'form'} noValidate onSubmit={handleSubmit(handleAddProduct)}> 
-            
-            {/* feild area */}
-            <Stack rowGap={3}>
-                <Stack>
-                    <Typography variant='h6' fontWeight={400} gutterBottom>Title</Typography>
-                    <TextField {...register("title",{required:'Title is required'})}/>
-                </Stack> 
+                        {/* Description */}
+                        <TextField
+                            label="Description"
+                            fullWidth
+                            multiline
+                            rows={4}
+                            {...register('description', {
+                                required: 'Description is required',
+                                minLength: { value: 10, message: 'Description must be at least 10 characters' }
+                            })}
+                            error={!!errors.description}
+                            helperText={errors.description?.message}
+                        />
 
-                <Stack flexDirection={'row'} >
+                        {/* Price */}
+                        <TextField
+                            label="Price"
+                            type="number"
+                            fullWidth
+                            {...register('price', {
+                                required: 'Price is required',
+                                min: { value: 0, message: 'Price must be positive' }
+                            })}
+                            error={!!errors.price}
+                            helperText={errors.price?.message}
+                        />
 
-                    <FormControl fullWidth>
-                        <InputLabel id="brand-selection">Brand</InputLabel>
-                        <Select {...register("brand",{required:"Brand is required"})} labelId="brand-selection" label="Brand">
-                            
-                            {
-                                brands.map((brand)=>(
-                                    <MenuItem value={brand._id}>{brand.name}</MenuItem>
-                                ))
-                            }
+                        {/* Stock */}
+                        <TextField
+                            label="Stock Quantity"
+                            type="number"
+                            fullWidth
+                            {...register('stock', {
+                                required: 'Stock quantity is required',
+                                min: { value: 0, message: 'Stock must be non-negative' }
+                            })}
+                            error={!!errors.stock}
+                            helperText={errors.stock?.message}
+                        />
 
-                        </Select>
-                    </FormControl>
+                        {/* Category */}
+                        <FormControl fullWidth error={!!errors.category}>
+                            <InputLabel>Category</InputLabel>
+                            <Select
+                                label="Category"
+                                {...register('category', { required: 'Category is required' })}
+                            >
+                                {categories.map((category) => (
+                                    <MenuItem key={category._id} value={category._id}>
+                                        {category.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {errors.category && (
+                                <Typography color="error" variant="caption">
+                                    {errors.category.message}
+                                </Typography>
+                            )}
+                        </FormControl>
 
+                        {/* Brand */}
+                        <FormControl fullWidth error={!!errors.brand}>
+                            <InputLabel>Brand</InputLabel>
+                            <Select
+                                label="Brand"
+                                {...register('brand', { required: 'Brand is required' })}
+                            >
+                                {brands.map((brand) => (
+                                    <MenuItem key={brand._id} value={brand._id}>
+                                        {brand.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {errors.brand && (
+                                <Typography color="error" variant="caption">
+                                    {errors.brand.message}
+                                </Typography>
+                            )}
+                        </FormControl>
 
-                    <FormControl fullWidth>
-                        <InputLabel id="category-selection">Category</InputLabel>
-                        <Select {...register("category",{required:"category is required"})} labelId="category-selection" label="Category">
-                            
-                            {
-                                categories.map((category)=>(
-                                    <MenuItem value={category._id}>{category.name}</MenuItem>
-                                ))
-                            }
+                        {/* Image Upload */}
+                        <Box>
+                            <Typography variant="h6" gutterBottom>
+                                Product Image
+                            </Typography>
 
-                        </Select>
-                    </FormControl>
+                            {imagePreview ? (
+                                <Card sx={{ maxWidth: 300, mb: 2 }}>
+                                    <CardMedia
+                                        component="img"
+                                        height="200"
+                                        image={imagePreview}
+                                        alt="Product preview"
+                                    />
+                                    <Box sx={{ p: 1, display: 'flex', justifyContent: 'center' }}>
+                                        <IconButton onClick={handleRemoveImage} color="error">
+                                            <Delete />
+                                        </IconButton>
+                                    </Box>
+                                </Card>
+                            ) : (
+                                <Button
+                                    variant="outlined"
+                                    component="label"
+                                    startIcon={<CloudUpload />}
+                                    sx={{ mb: 2 }}
+                                >
+                                    Upload Image
+                                    <input
+                                        type="file"
+                                        hidden
+                                        accept="image/*"
+                                        onChange={handleImageChange}
+                                    />
+                                </Button>
+                            )}
 
-                </Stack>
+                            <Typography variant="caption" color="text.secondary">
+                                Upload a high-quality image for your product (JPG, PNG, max 5MB)
+                            </Typography>
+                        </Box>
 
+                        {/* Submit Button */}
+                        <Stack direction="row" spacing={2}>
+                            <Button
+                                type="submit"
+                                variant="contained"
+                                size="large"
+                                disabled={loading || productStatus === 'pending'}
+                                sx={{ flex: 1 }}
+                            >
+                                {loading || productStatus === 'pending' ? (
+                                    <CircularProgress size={24} />
+                                ) : (
+                                    'Create Product'
+                                )}
+                            </Button>
 
-                <Stack>
-                    <Typography variant='h6' fontWeight={400}  gutterBottom>Description</Typography>
-                    <TextField multiline rows={4} {...register("description",{required:"Description is required"})}/>
-                </Stack>
-
-                <Stack flexDirection={'row'}>
-                    <Stack flex={1}>
-                        <Typography variant='h6' fontWeight={400}  gutterBottom>Price</Typography>
-                        <TextField type='number' {...register("price",{required:"Price is required"})}/>
+                            <Button
+                                variant="outlined"
+                                size="large"
+                                onClick={() => navigate('/admin/dashboard')}
+                                sx={{ flex: 1 }}
+                            >
+                                Cancel
+                            </Button>
+                        </Stack>
                     </Stack>
-                    <Stack flex={1}>
-                        <Typography variant='h6' fontWeight={400}  gutterBottom>Discount {is480?"%":"Percentage"}</Typography>
-                        <TextField type='number' {...register("discountPercentage",{required:"discount percentage is required"})}/>
-                    </Stack>
-                </Stack>
+                </Box>
+            </Paper>
+        </Box>
+    );
+};
 
-                <Stack>
-                    <Typography variant='h6'  fontWeight={400} gutterBottom>Stock Quantity</Typography>
-                    <TextField type='number' {...register("stockQuantity",{required:"Stock Quantity is required"})}/>
-                </Stack>
-                <Stack>
-                    <Typography variant='h6'  fontWeight={400} gutterBottom>Thumbnail</Typography>
-                    <TextField {...register("thumbnail",{required:"Thumbnail is required"})}/>
-                </Stack>
-
-                <Stack>
-                    <Typography variant='h6'  fontWeight={400} gutterBottom>Product Images</Typography>
-
-                    <Stack rowGap={2}>
-   
-                        <TextField {...register("image0",{required:"Image is required"})}/>
-                        <TextField {...register("image1",{required:"Image is required"})}/>
-                        <TextField {...register("image2",{required:"Image is required"})}/>
-                        <TextField {...register("image3",{required:"Image is required"})}/>
-    
-                    </Stack>
-
-                </Stack>
-
-            </Stack>
-
-            {/* action area */}
-            <Stack flexDirection={'row'} alignSelf={'flex-end'} columnGap={is480?1:2}>
-                <Button size={is480?'medium':'large'} variant='contained' type='submit'>Add Product</Button>
-                <Button size={is480?'medium':'large'} variant='outlined' color='error' component={Link} to={'/admin/dashboard'}>Cancel</Button>
-            </Stack>
-
-        </Stack>
-
-    </Stack>
-  )
-}
+export default AddProduct;

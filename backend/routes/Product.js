@@ -1,13 +1,18 @@
-const express=require('express')
-const productController=require("../controllers/Product")
-const router=express.Router()
+const express = require('express');
+const router = express.Router();
+const { create, getAll, getById, updateById, deleteById, getByCategory, getByBrand } = require('../controllers/Product');
+const { verifyToken } = require('../middleware/VerifyToken');
+const upload = require('../middleware/upload');
 
-router
-    .post("/",productController.create)
-    .get("/",productController.getAll)
-    .get("/:id",productController.getById)
-    .patch("/:id",productController.updateById)
-    .patch("/undelete/:id",productController.undeleteById)
-    .delete("/:id",productController.deleteById)
+// Public routes
+router.get('/', getAll);
+router.get('/:id', getById);
+router.get('/category/:categoryId', getByCategory);
+router.get('/brand/:brandId', getByBrand);
 
-module.exports=router
+// Protected routes (admin only)
+router.post('/', verifyToken, upload.single('image'), create);
+router.patch('/:id', verifyToken, upload.single('image'), updateById);
+router.delete('/:id', verifyToken, deleteById);
+
+module.exports = router;

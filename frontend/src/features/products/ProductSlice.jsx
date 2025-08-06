@@ -1,167 +1,298 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { addProduct, deleteProductById, fetchProductById, fetchProducts, undeleteProductById, updateProductById } from "./ProductApi";
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import {
+    fetchProducts,
+    fetchProductById,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    fetchProductsByCategory,
+    fetchProductsByBrand
+} from './ProductApi';
 
+// Async thunks
+export const fetchProductsAsync = createAsyncThunk(
+    'products/fetchProducts',
+    async (filters, { rejectWithValue }) => {
+        try {
+            const response = await fetchProducts(filters);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
 
-const initialState={
-    status:"idle",
-    productUpdateStatus:'idle',
-    productAddStatus:"idle",
-    productFetchStatus:"idle",
-    products:[],
-    totalResults:0,
-    isFilterOpen:false,
-    selectedProduct:null,
-    errors:null,
-    successMessage:null
-}
+export const fetchProductByIdAsync = createAsyncThunk(
+    'products/fetchProductById',
+    async (id, { rejectWithValue }) => {
+        try {
+            const response = await fetchProductById(id);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
 
-export const addProductAsync=createAsyncThunk("products/addProductAsync",async(data)=>{
-    const addedProduct=await addProduct(data)
-    return addedProduct
-})
-export const fetchProductsAsync=createAsyncThunk("products/fetchProductsAsync",async(filters)=>{
-    const products=await fetchProducts(filters)
-    return products
-})
-export const fetchProductByIdAsync=createAsyncThunk("products/fetchProductByIdAsync",async(id)=>{
-    const selectedProduct=await fetchProductById(id)
-    return selectedProduct
-})
-export const updateProductByIdAsync=createAsyncThunk("products/updateProductByIdAsync",async(update)=>{
-    const updatedProduct=await updateProductById(update)
-    return updatedProduct
-})
-export const undeleteProductByIdAsync=createAsyncThunk("products/undeleteProductByIdAsync",async(id)=>{
-    const unDeletedProduct=await undeleteProductById(id)
-    return unDeletedProduct
-})
-export const deleteProductByIdAsync=createAsyncThunk("products/deleteProductByIdAsync",async(id)=>{
-    const deletedProduct=await deleteProductById(id)
-    return deletedProduct
-})
+export const createProductAsync = createAsyncThunk(
+    'products/createProduct',
+    async (productData, { rejectWithValue }) => {
+        try {
+            const response = await createProduct(productData);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
 
-const productSlice=createSlice({
-    name:"productSlice",
-    initialState:initialState,
-    reducers:{
-        clearProductErrors:(state)=>{
-            state.errors=null
+export const updateProductAsync = createAsyncThunk(
+    'products/updateProduct',
+    async ({ id, productData }, { rejectWithValue }) => {
+        try {
+            const response = await updateProduct(id, productData);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
+
+export const deleteProductAsync = createAsyncThunk(
+    'products/deleteProduct',
+    async (id, { rejectWithValue }) => {
+        try {
+            const response = await deleteProduct(id);
+            return { id, ...response };
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
+
+export const fetchProductsByCategoryAsync = createAsyncThunk(
+    'products/fetchProductsByCategory',
+    async (categoryId, { rejectWithValue }) => {
+        try {
+            const response = await fetchProductsByCategory(categoryId);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
+
+export const fetchProductsByBrandAsync = createAsyncThunk(
+    'products/fetchProductsByBrand',
+    async (brandId, { rejectWithValue }) => {
+        try {
+            const response = await fetchProductsByBrand(brandId);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error);
+        }
+    }
+);
+
+const initialState = {
+    products: [],
+    currentProduct: null,
+    pagination: {
+        total: 0,
+        page: 1,
+        limit: 12,
+        pages: 1
+    },
+    filters: {
+        category: '',
+        brand: '',
+        minPrice: '',
+        maxPrice: '',
+        search: '',
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+    },
+    status: 'idle',
+    error: null,
+    loading: false,
+    isFilterOpen: false
+};
+
+const productSlice = createSlice({
+    name: 'products',
+    initialState,
+    reducers: {
+        clearCurrentProduct: (state) => {
+            state.currentProduct = null;
         },
-        clearProductSuccessMessage:(state)=>{
-            state.successMessage=null
+        setFilters: (state, action) => {
+            state.filters = { ...state.filters, ...action.payload };
         },
-        resetProductStatus:(state)=>{
-            state.status='idle'
+        clearFilters: (state) => {
+            state.filters = initialState.filters;
         },
-        clearSelectedProduct:(state)=>{
-            state.selectedProduct=null
+        setPage: (state, action) => {
+            state.pagination.page = action.payload;
         },
-        resetProductUpdateStatus:(state)=>{
-            state.productUpdateStatus='idle'
+        clearError: (state) => {
+            state.error = null;
         },
-        resetProductAddStatus:(state)=>{
-            state.productAddStatus='idle'
-        },
-        toggleFilters:(state)=>{
-            state.isFilterOpen=!state.isFilterOpen
-        },
-        resetProductFetchStatus:(state)=>{
-            state.productFetchStatus='idle'
+        toggleFilters: (state) => {
+            state.isFilterOpen = !state.isFilterOpen;
         }
     },
-    extraReducers:(builder)=>{
+    extraReducers: (builder) => {
         builder
-            .addCase(addProductAsync.pending,(state)=>{
-                state.productAddStatus='pending'
+            // Fetch Products
+            .addCase(fetchProductsAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(addProductAsync.fulfilled,(state,action)=>{
-                state.productAddStatus='fullfilled'
-                state.products.push(action.payload)
+            .addCase(fetchProductsAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                state.products = action.payload.products || action.payload;
+                if (action.payload.pagination) {
+                    state.pagination = action.payload.pagination;
+                }
             })
-            .addCase(addProductAsync.rejected,(state,action)=>{
-                state.productAddStatus='rejected'
-                state.errors=action.error
+            .addCase(fetchProductsAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to fetch products';
             })
-
-            .addCase(fetchProductsAsync.pending,(state)=>{
-                state.productFetchStatus='pending'
+            // Fetch Product by ID
+            .addCase(fetchProductByIdAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(fetchProductsAsync.fulfilled,(state,action)=>{
-                state.productFetchStatus='fullfilled'
-                state.products=action.payload.data
-                state.totalResults=action.payload.totalResults
+            .addCase(fetchProductByIdAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                state.currentProduct = action.payload;
             })
-            .addCase(fetchProductsAsync.rejected,(state,action)=>{
-                state.productFetchStatus='rejected'
-                state.errors=action.error
+            .addCase(fetchProductByIdAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to fetch product';
             })
-
-            .addCase(fetchProductByIdAsync.pending,(state)=>{
-                state.productFetchStatus='pending'
+            // Create Product
+            .addCase(createProductAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(fetchProductByIdAsync.fulfilled,(state,action)=>{
-                state.productFetchStatus='fullfilled'
-                state.selectedProduct=action.payload
+            .addCase(createProductAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                state.products.unshift(action.payload);
             })
-            .addCase(fetchProductByIdAsync.rejected,(state,action)=>{
-                state.productFetchStatus='rejected'
-                state.errors=action.error
+            .addCase(createProductAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to create product';
             })
-
-            .addCase(updateProductByIdAsync.pending,(state)=>{
-                state.productUpdateStatus='pending'
+            // Update Product
+            .addCase(updateProductAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(updateProductByIdAsync.fulfilled,(state,action)=>{
-                state.productUpdateStatus='fullfilled'
-                const index=state.products.findIndex((product)=>product._id===action.payload._id)
-                state.products[index]=action.payload
+            .addCase(updateProductAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                const index = state.products.findIndex(p => p._id === action.payload._id);
+                if (index !== -1) {
+                    state.products[index] = action.payload;
+                }
+                if (state.currentProduct && state.currentProduct._id === action.payload._id) {
+                    state.currentProduct = action.payload;
+                }
             })
-            .addCase(updateProductByIdAsync.rejected,(state,action)=>{
-                state.productUpdateStatus='rejected'
-                state.errors=action.error
+            .addCase(updateProductAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to update product';
             })
-
-            .addCase(undeleteProductByIdAsync.pending,(state)=>{
-                state.status='pending'
+            // Delete Product
+            .addCase(deleteProductAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(undeleteProductByIdAsync.fulfilled,(state,action)=>{
-                state.status='fullfilled'
-                const index=state.products.findIndex((product)=>product._id===action.payload._id)
-                state.products[index]=action.payload
+            .addCase(deleteProductAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                state.products = state.products.filter(p => p._id !== action.payload.id);
             })
-            .addCase(undeleteProductByIdAsync.rejected,(state,action)=>{
-                state.status='rejected'
-                state.errors=action.error
+            .addCase(deleteProductAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to delete product';
             })
-
-            .addCase(deleteProductByIdAsync.pending,(state)=>{
-                state.status='pending'
+            // Fetch Products by Category
+            .addCase(fetchProductsByCategoryAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(deleteProductByIdAsync.fulfilled,(state,action)=>{
-                state.status='fullfilled'
-                const index=state.products.findIndex((product)=>product._id===action.payload._id)
-                state.products[index]=action.payload
+            .addCase(fetchProductsByCategoryAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                state.products = action.payload;
             })
-            .addCase(deleteProductByIdAsync.rejected,(state,action)=>{
-                state.status='rejected'
-                state.errors=action.error
+            .addCase(fetchProductsByCategoryAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to fetch products by category';
             })
+            // Fetch Products by Brand
+            .addCase(fetchProductsByBrandAsync.pending, (state) => {
+                state.status = 'loading';
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchProductsByBrandAsync.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.loading = false;
+                state.products = action.payload;
+            })
+            .addCase(fetchProductsByBrandAsync.rejected, (state, action) => {
+                state.status = 'failed';
+                state.loading = false;
+                state.error = action.payload?.message || 'Failed to fetch products by brand';
+            });
     }
-})
+});
 
-// exporting selectors
-export const selectProductStatus=(state)=>state.ProductSlice.status
-export const selectProducts=(state)=>state.ProductSlice.products
-export const selectProductTotalResults=(state)=>state.ProductSlice.totalResults
-export const selectSelectedProduct=(state)=>state.ProductSlice.selectedProduct
-export const selectProductErrors=(state)=>state.ProductSlice.errors
-export const selectProductSuccessMessage=(state)=>state.ProductSlice.successMessage
-export const selectProductUpdateStatus=(state)=>state.ProductSlice.productUpdateStatus
-export const selectProductAddStatus=(state)=>state.ProductSlice.productAddStatus
-export const selectProductIsFilterOpen=(state)=>state.ProductSlice.isFilterOpen
-export const selectProductFetchStatus=(state)=>state.ProductSlice.productFetchStatus
+export const {
+    clearCurrentProduct,
+    setFilters,
+    clearFilters,
+    setPage,
+    clearError,
+    toggleFilters
+} = productSlice.actions;
 
-// exporting actions
-export const {clearProductSuccessMessage,clearProductErrors,clearSelectedProduct,resetProductStatus,resetProductUpdateStatus,resetProductAddStatus,toggleFilters,resetProductFetchStatus}=productSlice.actions
+// Selectors
+export const selectProducts = (state) => state.products.products;
+export const selectCurrentProduct = (state) => state.products.currentProduct;
+export const selectProductStatus = (state) => state.products.status;
+export const selectProductLoading = (state) => state.products.loading;
+export const selectProductError = (state) => state.products.error;
+export const selectProductPagination = (state) => state.products.pagination;
+export const selectProductFilters = (state) => state.products.filters;
+export const selectProductIsFilterOpen = (state) => state.products.isFilterOpen;
 
-export default productSlice.reducer
+// Additional exports for backward compatibility
+export const selectSelectedProduct = selectCurrentProduct;
+export const selectProductFetchStatus = selectProductStatus;
+export const selectProductUpdateStatus = selectProductStatus;
+export const clearSelectedProduct = clearCurrentProduct;
+export const resetProductFetchStatus = clearError;
+export const resetProductUpdateStatus = clearError;
+export const updateProductByIdAsync = updateProductAsync;
+
+export default productSlice.reducer;

@@ -1,319 +1,409 @@
-import {FormControl, Grid, IconButton, InputLabel, MenuItem, Select, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
-import React, { useEffect, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { fetchProductsAsync, resetProductFetchStatus, selectProductFetchStatus, selectProductIsFilterOpen, selectProductTotalResults, selectProducts, toggleFilters } from '../ProductSlice'
-import { ProductCard } from './ProductCard'
-import Accordion from '@mui/material/Accordion';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AddIcon from '@mui/icons-material/Add';
-import { selectBrands } from '../../brands/BrandSlice'
-import FormGroup from '@mui/material/FormGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
-import { selectCategories } from '../../categories/CategoriesSlice'
-import Pagination from '@mui/material/Pagination';
-import { ITEMS_PER_PAGE } from '../../../constants'
-import {createWishlistItemAsync, deleteWishlistItemByIdAsync, resetWishlistItemAddStatus, resetWishlistItemDeleteStatus, selectWishlistItemAddStatus, selectWishlistItemDeleteStatus, selectWishlistItems} from '../../wishlist/WishlistSlice'
-import {selectLoggedInUser} from '../../auth/AuthSlice'
-import {toast} from 'react-toastify'
-import {banner1, banner2, banner3, banner4, loadingAnimation} from '../../../assets'
-import { resetCartItemAddStatus, selectCartItemAddStatus } from '../../cart/CartSlice'
-import { motion } from 'framer-motion'
-import { ProductBanner } from './ProductBanner'
-import ClearIcon from '@mui/icons-material/Clear';
-import Lottie from 'lottie-react'
+import React, { useState, useEffect } from 'react';
+import {
+    Box,
+    Grid,
+    Paper,
+    Typography,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Button,
+    Slider,
+    Stack,
+    Chip,
+    Pagination,
+    CircularProgress,
+    Alert,
+    Card,
+    CardContent,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    FormGroup,
+    FormControlLabel,
+    Checkbox,
+    IconButton
+} from '@mui/material';
+import {
+    Search,
+    FilterList,
+    Clear,
+    ExpandMore,
+    Sort
+} from '@mui/icons-material';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+    fetchProductsAsync,
+    setFilters,
+    clearFilters,
+    setPage,
+    selectProducts,
+    selectProductLoading,
+    selectProductError,
+    selectProductPagination,
+    selectProductFilters
+} from '../ProductSlice';
+import { fetchBrandsAsync, selectBrands } from '../../brands/BrandSlice';
+import { fetchCategoriesAsync, selectCategories } from '../../categories/CategoriesSlice';
+import { ProductCard } from './ProductCard';
 
+const ProductList = () => {
+    const dispatch = useDispatch();
+    const products = useSelector(selectProducts);
+    const loading = useSelector(selectProductLoading);
+    const error = useSelector(selectProductError);
+    const pagination = useSelector(selectProductPagination);
+    const filters = useSelector(selectProductFilters);
+    const brands = useSelector(selectBrands);
+    const categories = useSelector(selectCategories);
 
-const sortOptions=[
-    {name:"Price: low to high",sort:"price",order:"asc"},
-    {name:"Price: high to low",sort:"price",order:"desc"},
-]
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [priceRange, setPriceRange] = useState([filters.minPrice || 0, filters.maxPrice || 1000]);
+    const [selectedCategories, setSelectedCategories] = useState(filters.category ? [filters.category] : []);
+    const [selectedBrands, setSelectedBrands] = useState(filters.brand ? [filters.brand] : []);
+    const [sortBy, setSortBy] = useState(filters.sortBy || 'createdAt');
+    const [sortOrder, setSortOrder] = useState(filters.sortOrder || 'desc');
+    const [showFilters, setShowFilters] = useState(false);
 
+    useEffect(() => {
+        dispatch(fetchBrandsAsync());
+        dispatch(fetchCategoriesAsync());
+    }, [dispatch]);
 
-const bannerImages=[banner1,banner3,banner2,banner4]
+    useEffect(() => {
+        const currentFilters = {
+            search: searchTerm,
+            minPrice: priceRange[0],
+            maxPrice: priceRange[1],
+            category: selectedCategories.length > 0 ? selectedCategories[0] : '',
+            brand: selectedBrands.length > 0 ? selectedBrands[0] : '',
+            sortBy,
+            sortOrder,
+            pagination: {
+                page: pagination.page,
+                limit: pagination.limit
+            }
+        };
 
-export const ProductList = () => {
-    const [filters,setFilters]=useState({})
-    const [page,setPage]=useState(1)
-    const [sort,setSort]=useState(null)
-    const theme=useTheme()
+        dispatch(setFilters(currentFilters));
+        dispatch(fetchProductsAsync(currentFilters));
+    }, [searchTerm, priceRange, selectedCategories, selectedBrands, sortBy, sortOrder, pagination.page]);
 
-    const is1200=useMediaQuery(theme.breakpoints.down(1200))
-    const is800=useMediaQuery(theme.breakpoints.down(800))
-    const is700=useMediaQuery(theme.breakpoints.down(700))
-    const is600=useMediaQuery(theme.breakpoints.down(600))
-    const is500=useMediaQuery(theme.breakpoints.down(500))
-    const is488=useMediaQuery(theme.breakpoints.down(488))
+    const handleSearch = (event) => {
+        setSearchTerm(event.target.value);
+        dispatch(setPage(1));
+    };
 
-    const brands=useSelector(selectBrands)
-    const categories=useSelector(selectCategories)
-    const products=useSelector(selectProducts)
-    const totalResults=useSelector(selectProductTotalResults)
-    const loggedInUser=useSelector(selectLoggedInUser)
+    const handlePriceChange = (event, newValue) => {
+        setPriceRange(newValue);
+        dispatch(setPage(1));
+    };
 
-    const productFetchStatus=useSelector(selectProductFetchStatus)
+    const handleCategoryChange = (categoryId) => {
+        const newCategories = selectedCategories.includes(categoryId)
+            ? selectedCategories.filter(id => id !== categoryId)
+            : [...selectedCategories, categoryId];
+        setSelectedCategories(newCategories);
+        dispatch(setPage(1));
+    };
 
-    const wishlistItems=useSelector(selectWishlistItems)
-    const wishlistItemAddStatus=useSelector(selectWishlistItemAddStatus)
-    const wishlistItemDeleteStatus=useSelector(selectWishlistItemDeleteStatus)
+    const handleBrandChange = (brandId) => {
+        const newBrands = selectedBrands.includes(brandId)
+            ? selectedBrands.filter(id => id !== brandId)
+            : [...selectedBrands, brandId];
+        setSelectedBrands(newBrands);
+        dispatch(setPage(1));
+    };
 
-    const cartItemAddStatus=useSelector(selectCartItemAddStatus)
+    const handleSortChange = (event) => {
+        setSortBy(event.target.value);
+        dispatch(setPage(1));
+    };
 
-    const isProductFilterOpen=useSelector(selectProductIsFilterOpen)
+    const handleSortOrderChange = (event) => {
+        setSortOrder(event.target.value);
+        dispatch(setPage(1));
+    };
 
-    const dispatch=useDispatch()
+    const handlePageChange = (event, page) => {
+        dispatch(setPage(page));
+    };
 
-    const handleBrandFilters=(e)=>{
+    const handleClearFilters = () => {
+        setSearchTerm('');
+        setPriceRange([0, 1000]);
+        setSelectedCategories([]);
+        setSelectedBrands([]);
+        setSortBy('createdAt');
+        setSortOrder('desc');
+        dispatch(clearFilters());
+        dispatch(setPage(1));
+    };
 
-        const filterSet=new Set(filters.brand)
+    const handleApplyFilters = () => {
+        const currentFilters = {
+            search: searchTerm,
+            minPrice: priceRange[0],
+            maxPrice: priceRange[1],
+            category: selectedCategories.length > 0 ? selectedCategories[0] : '',
+            brand: selectedBrands.length > 0 ? selectedBrands[0] : '',
+            sortBy,
+            sortOrder,
+            pagination: {
+                page: 1,
+                limit: pagination.limit
+            }
+        };
 
-        if(e.target.checked){filterSet.add(e.target.value)}
-        else{filterSet.delete(e.target.value)}
+        dispatch(setFilters(currentFilters));
+        dispatch(setPage(1));
+        dispatch(fetchProductsAsync(currentFilters));
+    };
 
-        const filterArray = Array.from(filterSet);
-        setFilters({...filters,brand:filterArray})
+    if (error) {
+        return (
+            <Alert severity="error" sx={{ m: 2 }}>
+                {error}
+            </Alert>
+        );
     }
 
-    const handleCategoryFilters=(e)=>{
-        const filterSet=new Set(filters.category)
+    return (
+        <Box sx={{ p: 3 }}>
+            <Typography variant="h4" gutterBottom>
+                Products
+            </Typography>
 
-        if(e.target.checked){filterSet.add(e.target.value)}
-        else{filterSet.delete(e.target.value)}
+            {/* Search and Sort Bar */}
+            <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                    <TextField
+                        placeholder="Search products..."
+                        value={searchTerm}
+                        onChange={handleSearch}
+                        InputProps={{
+                            startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                        }}
+                        sx={{ minWidth: 250 }}
+                    />
 
-        const filterArray = Array.from(filterSet);
-        setFilters({...filters,category:filterArray})
-    }
+                    <FormControl sx={{ minWidth: 120 }}>
+                        <InputLabel>Sort By</InputLabel>
+                        <Select value={sortBy} onChange={handleSortChange} label="Sort By">
+                            <MenuItem value="createdAt">Newest</MenuItem>
+                            <MenuItem value="price">Price</MenuItem>
+                            <MenuItem value="name">Name</MenuItem>
+                        </Select>
+                    </FormControl>
 
-    useEffect(()=>{
-        window.scrollTo({
-            top:0,
-            behavior:"instant"
-        })
-    },[])
+                    <FormControl sx={{ minWidth: 100 }}>
+                        <InputLabel>Order</InputLabel>
+                        <Select value={sortOrder} onChange={handleSortOrderChange} label="Order">
+                            <MenuItem value="desc">Desc</MenuItem>
+                            <MenuItem value="asc">Asc</MenuItem>
+                        </Select>
+                    </FormControl>
 
-    useEffect(()=>{
-        setPage(1)
-    },[totalResults])
+                    <Button
+                        variant="outlined"
+                        startIcon={<FilterList />}
+                        onClick={() => setShowFilters(!showFilters)}
+                    >
+                        Filters
+                    </Button>
 
+                    <Button
+                        variant="outlined"
+                        startIcon={<Clear />}
+                        onClick={handleClearFilters}
+                        color="error"
+                    >
+                        Clear
+                    </Button>
+                </Stack>
+            </Paper>
 
-    useEffect(()=>{
-        const finalFilters={...filters}
+            {/* Filters Panel */}
+            {showFilters && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Filters
+                    </Typography>
 
-        finalFilters['pagination']={page:page,limit:ITEMS_PER_PAGE}
-        finalFilters['sort']=sort
+                    <Grid container spacing={3}>
+                        {/* Price Range */}
+                        <Grid item xs={12} md={6}>
+                            <Typography gutterBottom>Price Range</Typography>
+                            <Slider
+                                value={priceRange}
+                                onChange={handlePriceChange}
+                                valueLabelDisplay="auto"
+                                min={0}
+                                max={1000}
+                                step={10}
+                            />
+                            <Typography variant="caption">
+                                ${priceRange[0]} - ${priceRange[1]}
+                            </Typography>
+                        </Grid>
 
-        if(!loggedInUser?.isAdmin){
-            finalFilters['user']=true
-        }
+                        {/* Categories */}
+                        <Grid item xs={12} md={6}>
+                            <Accordion>
+                                <AccordionSummary expandIcon={<ExpandMore />}>
+                                    <Typography>Categories</Typography>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <FormGroup>
+                                        {categories.map((category) => (
+                                            <FormControlLabel
+                                                key={category._id}
+                                                control={
+                                                    <Checkbox
+                                                        checked={selectedCategories.includes(category._id)}
+                                                        onChange={() => handleCategoryChange(category._id)}
+                                                    />
+                                                }
+                                                label={category.name}
+                                            />
+                                        ))}
+                                    </FormGroup>
+                                </AccordionDetails>
+                            </Accordion>
+                        </Grid>
 
-        dispatch(fetchProductsAsync(finalFilters))
-        
-    },[filters,page,sort])
-
-
-    const handleAddRemoveFromWishlist=(e,productId)=>{
-        if(e.target.checked){
-            const data={user:loggedInUser?._id,product:productId}
-            dispatch(createWishlistItemAsync(data))
-        }
-
-        else if(!e.target.checked){
-            const index=wishlistItems.findIndex((item)=>item.product._id===productId)
-            dispatch(deleteWishlistItemByIdAsync(wishlistItems[index]._id));
-        }
-    }
-
-    useEffect(()=>{
-        if(wishlistItemAddStatus==='fulfilled'){
-            toast.success("Product added to wishlist")
-        }
-        else if(wishlistItemAddStatus==='rejected'){
-            toast.error("Error adding product to wishlist, please try again later")
-        }
-
-    },[wishlistItemAddStatus])
-
-    useEffect(()=>{
-        if(wishlistItemDeleteStatus==='fulfilled'){
-            toast.success("Product removed from wishlist")
-        }
-        else if(wishlistItemDeleteStatus==='rejected'){
-            toast.error("Error removing product from wishlist, please try again later")
-        }
-    },[wishlistItemDeleteStatus])
-
-    useEffect(()=>{
-        if(cartItemAddStatus==='fulfilled'){
-            toast.success("Product added to cart")
-        }
-        else if(cartItemAddStatus==='rejected'){
-            toast.error("Error adding product to cart, please try again later")
-        }
-        
-    },[cartItemAddStatus])
-
-    useEffect(()=>{
-        if(productFetchStatus==='rejected'){
-            toast.error("Error fetching products, please try again later")
-        }
-    },[productFetchStatus])
-
-    useEffect(()=>{
-        return ()=>{
-            dispatch(resetProductFetchStatus())
-            dispatch(resetWishlistItemAddStatus())
-            dispatch(resetWishlistItemDeleteStatus())
-            dispatch(resetCartItemAddStatus())
-        }
-    },[])
-
-
-    const handleFilterClose=()=>{
-        dispatch(toggleFilters())
-    }
-
-  return (
-    <>
-    {/* filters side bar */}
-
-    {
-        productFetchStatus==='pending'?
-        <Stack width={is500?"35vh":'25rem'} height={'calc(100vh - 4rem)'} justifyContent={'center'} marginRight={'auto'} marginLeft={'auto'}>
-            <Lottie animationData={loadingAnimation}/>
-        </Stack>
-        :
-        <>
-        <motion.div style={{position:"fixed",backgroundColor:"white",height:"100vh",padding:'1rem',overflowY:"scroll",width:is500?"100vw":"30rem",zIndex:500}}  variants={{show:{left:0},hide:{left:-500}}} initial={'hide'} transition={{ease:"easeInOut",duration:.7,type:"spring"}} animate={isProductFilterOpen===true?"show":"hide"}>
-
-            {/* fitlers section */}
-            <Stack mb={'5rem'}  sx={{scrollBehavior:"smooth",overflowY:"scroll"}}>
-
-                    
-                        <Typography variant='h4'>New Arrivals</Typography>
-
-
-                            <IconButton onClick={handleFilterClose} style={{position:"absolute",top:15,right:15}}>
-                                <motion.div whileHover={{scale:1.1}} whileTap={{scale:0.9}}>
-                                    <ClearIcon fontSize='medium'/>
-                                </motion.div>
-                            </IconButton>
-
-
-                    <Stack rowGap={2} mt={4} >
-                        <Typography sx={{cursor:"pointer"}} variant='body2'>Totes</Typography>
-                        <Typography sx={{cursor:"pointer"}} variant='body2'>Backpacks</Typography>
-                        <Typography sx={{cursor:"pointer"}} variant='body2'>Travel Bags</Typography>
-                        <Typography sx={{cursor:"pointer"}} variant='body2'>Hip Bags</Typography>
-                        <Typography sx={{cursor:"pointer"}} variant='body2'>Laptop Sleeves</Typography>
-                    </Stack>
-
-                    {/* brand filters */}
-                    <Stack mt={2}>
-                        <Accordion>
-                            <AccordionSummary expandIcon={<AddIcon />}  aria-controls="brand-filters" id="brand-filters" >
+                        {/* Brands */}
+                        <Grid item xs={12} md={6}>
+                            <Accordion>
+                                <AccordionSummary expandIcon={<ExpandMore />}>
                                     <Typography>Brands</Typography>
-                            </AccordionSummary>
-
-                            <AccordionDetails sx={{p:0}}>
-                                <FormGroup onChange={handleBrandFilters}>
-                                    {
-                                        brands?.map((brand)=>(
-                                            <motion.div style={{width:"fit-content"}} whileHover={{x:5}} whileTap={{scale:0.9}}>
-                                                <FormControlLabel sx={{ml:1}} control={<Checkbox whileHover={{scale:1.1}} />} label={brand.name} value={brand._id} />
-                                            </motion.div>
-                                        ))
-                                    }
-                                </FormGroup>
-                            </AccordionDetails>
-                        </Accordion>
-                    </Stack>
-
-                    {/* category filters */}
-                    <Stack mt={2}>
-                        <Accordion>
-                            <AccordionSummary expandIcon={<AddIcon />}  aria-controls="brand-filters" id="brand-filters" >
-                                    <Typography>Category</Typography>
-                            </AccordionSummary>
-
-                            <AccordionDetails sx={{p:0}}>
-                                <FormGroup onChange={handleCategoryFilters}>
-                                    {
-                                        categories?.map((category)=>(
-                                            <motion.div style={{width:"fit-content"}} whileHover={{x:5}} whileTap={{scale:0.9}}>
-                                                <FormControlLabel sx={{ml:1}} control={<Checkbox whileHover={{scale:1.1}} />} label={category.name} value={category._id} />
-                                            </motion.div>
-                                        ))
-                                    }
-                                </FormGroup>
-                            </AccordionDetails>
-                        </Accordion>
-                    </Stack>
-            </Stack>
-
-        </motion.div>
-        
-        <Stack mb={'3rem'}>
-            
-
-                {/* banners section */}
-                {
-                    !is600 && 
-                
-                <Stack sx={{width:"100%",height:is800?"300px":is1200?"400px":"500px"}}>
-                    <ProductBanner images={bannerImages}/>
-                </Stack>
-                }
-
-                {/* products */}
-                <Stack rowGap={5} mt={is600?2:0}>
-
-                    {/* sort options */}
-                    <Stack flexDirection={'row'} mr={'2rem'} justifyContent={'flex-end'} alignItems={'center'} columnGap={5}>
-                                        
-                        <Stack alignSelf={'flex-end'} width={'12rem'}>
-                            <FormControl fullWidth>
-                                    <InputLabel id="sort-dropdown">Sort</InputLabel>
-                                    <Select
-                                        variant='standard'
-                                        labelId="sort-dropdown"
-                                        label="Sort"
-                                        onChange={(e)=>setSort(e.target.value)}
-                                        value={sort}
-                                    >
-                                        <MenuItem bgcolor='text.secondary' value={null}>Reset</MenuItem>
-                                        {
-                                            sortOptions.map((option)=>(
-                                                <MenuItem key={option} value={option}>{option.name}</MenuItem>
-                                            ))
-                                        }
-                                    </Select>
-                            </FormControl>
-                        </Stack>
-                    
-                    </Stack>
-
-                    {/* product grid */}
-                    <Grid gap={is700?1:2} container justifyContent={'center'} alignContent={'center'}>
-                        {
-                            products.map((product)=>(
-                                <ProductCard key={product._id} id={product._id} title={product.title} thumbnail={product.thumbnail} brand={product.brand.name} price={product.price} handleAddRemoveFromWishlist={handleAddRemoveFromWishlist}/>
-                            ))
-                        }
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <FormGroup>
+                                        {brands.map((brand) => (
+                                            <FormControlLabel
+                                                key={brand._id}
+                                                control={
+                                                    <Checkbox
+                                                        checked={selectedBrands.includes(brand._id)}
+                                                        onChange={() => handleBrandChange(brand._id)}
+                                                    />
+                                                }
+                                                label={brand.name}
+                                            />
+                                        ))}
+                                    </FormGroup>
+                                </AccordionDetails>
+                            </Accordion>
+                        </Grid>
                     </Grid>
-                    
-                    {/* pagination */}
-                    <Stack alignSelf={is488?'center':'flex-end'} mr={is488?0:5} rowGap={2} p={is488?1:0}>
-                        <Pagination size={is488?'medium':'large'} page={page}  onChange={(e,page)=>setPage(page)} count={Math.ceil(totalResults/ITEMS_PER_PAGE)} variant="outlined" shape="rounded" />
-                        <Typography textAlign={'center'}>Showing {(page-1)*ITEMS_PER_PAGE+1} to {page*ITEMS_PER_PAGE>totalResults?totalResults:page*ITEMS_PER_PAGE} of {totalResults} results</Typography>
-                    </Stack>    
-                
-                </Stack>
-                
-        </Stack>
-        </>
-    }
 
-    </>
-  )
-}
+                    <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" onClick={handleApplyFilters}>
+                            Apply Filters
+                        </Button>
+                        <Button variant="outlined" onClick={handleClearFilters}>
+                            Clear All
+                        </Button>
+                    </Stack>
+                </Paper>
+            )}
+
+            {/* Active Filters */}
+            {(selectedCategories.length > 0 || selectedBrands.length > 0 || searchTerm) && (
+                <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                        Active Filters:
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {searchTerm && (
+                            <Chip
+                                label={`Search: ${searchTerm}`}
+                                onDelete={() => setSearchTerm('')}
+                                color="primary"
+                                variant="outlined"
+                            />
+                        )}
+                        {selectedCategories.map(categoryId => {
+                            const category = categories.find(c => c._id === categoryId);
+                            return category ? (
+                                <Chip
+                                    key={categoryId}
+                                    label={`Category: ${category.name}`}
+                                    onDelete={() => handleCategoryChange(categoryId)}
+                                    color="secondary"
+                                    variant="outlined"
+                                />
+                            ) : null;
+                        })}
+                        {selectedBrands.map(brandId => {
+                            const brand = brands.find(b => b._id === brandId);
+                            return brand ? (
+                                <Chip
+                                    key={brandId}
+                                    label={`Brand: ${brand.name}`}
+                                    onDelete={() => handleBrandChange(brandId)}
+                                    color="info"
+                                    variant="outlined"
+                                />
+                            ) : null;
+                        })}
+                    </Stack>
+                </Paper>
+            )}
+
+            {/* Products Grid */}
+            {loading ? (
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <>
+                    <Grid container spacing={3}>
+                        {products.map((product) => (
+                            <Grid item xs={12} sm={6} md={4} lg={3} key={product._id}>
+                                <ProductCard
+                                    id={product._id}
+                                    title={product.name}
+                                    price={product.price}
+                                    thumbnail={product.thumbnail}
+                                    brand={product.brand?.name || product.brand}
+                                    stockQuantity={product.stockQuantity}
+                                    handleAddRemoveFromWishlist={() => { }}
+                                    isWishlistCard={false}
+                                    isAdminCard={false}
+                                />
+                            </Grid>
+                        ))}
+                    </Grid>
+
+                    {/* Pagination */}
+                    {pagination.pages > 1 && (
+                        <Box display="flex" justifyContent="center" mt={4}>
+                            <Pagination
+                                count={pagination.pages}
+                                page={pagination.page}
+                                onChange={handlePageChange}
+                                color="primary"
+                                size="large"
+                            />
+                        </Box>
+                    )}
+
+                    {/* Results Info */}
+                    <Box textAlign="center" mt={2}>
+                        <Typography variant="body2" color="text.secondary">
+                            Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
+                            {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                            {pagination.total} results
+                        </Typography>
+                    </Box>
+                </>
+            )}
+        </Box>
+    );
+};
+
+export default ProductList;
